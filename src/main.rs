@@ -101,11 +101,10 @@ fn main() -> ! {
 
     let mut value = 0u32;
     loop {
-        writeln!(uart, "value: {:02}\r", value).unwrap();
         led_pin.set_high().unwrap();
-        delay.delay_ms(DOT);
+        writeln!(uart, "value: {:02}\r", value).unwrap();
         led_pin.set_low().unwrap();
-        delay.delay_ms(DASH);
+        delay.delay_ms(1000);
         value += 1
     }
 }
