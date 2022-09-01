@@ -31,6 +31,9 @@ use rp_pico::hal::pac;
 // higher-level drivers.
 use rp_pico::hal;
 
+use cortex_m::delay::Delay;
+use rp2040_hal::gpio::*;
+
 /// Entry point to our bare-metal application.
 ///
 /// The `#[entry]` macro ensures the Cortex-M start-up code calls this function
@@ -82,10 +85,43 @@ fn main() -> ! {
 
     // Blink the LED at 1 Hz
     loop {
-        led_pin.set_high().unwrap();
-        delay.delay_ms(100);
-        led_pin.set_low().unwrap();
-        delay.delay_ms(100);
+        s(&mut delay, &mut led_pin);
+        delay.delay_ms(INTER_CHARACTER);
+        o(&mut delay, &mut led_pin);
+        delay.delay_ms(INTER_CHARACTER);
+        s(&mut delay, &mut led_pin);
+        delay.delay_ms(WORD_SPACE);        
+    }
+}
+
+const DIT: u32 = 250;
+const DAH: u32 = 6 * DIT;
+
+const DOT: u32 = DIT;
+const DASH: u32 = DAH;
+const INTRA_CHARACTER: u32 = DIT;
+const INTER_CHARACTER: u32 = DAH * 3;
+const WORD_SPACE: u32 = 7 * DIT;
+
+fn s(delay: &mut Delay, pin: &mut Pin<bank0::Gpio25, Output<PushPull>>) {
+    for i in 0..3 {
+        pin.set_high().unwrap();
+        delay.delay_ms(DOT);
+        pin.set_low().unwrap();
+        if i == 2 {
+            delay.delay_ms(INTRA_CHARACTER);
+        }
+    }
+}
+
+fn o(delay: &mut Delay, pin: &mut Pin<bank0::Gpio25, Output<PushPull>>) {
+    for i in 0..3 {
+        pin.set_high().unwrap();
+        delay.delay_ms(DASH);
+        pin.set_low().unwrap();
+        if i == 2 {
+            delay.delay_ms(INTRA_CHARACTER);
+        }
     }
 }
 
