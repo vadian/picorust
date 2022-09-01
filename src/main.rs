@@ -15,6 +15,7 @@ use rp_pico::entry;
 
 // GPIO traits
 use embedded_hal::digital::v2::OutputPin;
+use core::fmt::Write;
 
 // Ensure we halt the program on panic (if we don't mention this crate it won't
 // be linked)
@@ -83,14 +84,29 @@ fn main() -> ! {
     // Set the LED to be an output
     let mut led_pin = pins.led.into_push_pull_output();
 
-    // Blink the LED at 1 Hz
+    let uart_pins = (
+        // UART TX (characters sent from RP2040) on pin 1 (GPIO0)
+        pins.gpio0.into_mode::<hal::gpio::FunctionUart>(),
+        // UART RX (characters received by RP2040) on pin 2 (GPIO1)
+        pins.gpio1.into_mode::<hal::gpio::FunctionUart>(),
+    );
+    let mut uart = hal::uart::UartPeripheral::new(pac.UART0, uart_pins, &mut pac.RESETS)
+        .enable(
+            hal::uart::common_configs::_9600_8_N_1,
+            clocks.peripheral_clock.freq(),
+        )
+        .unwrap();
+
+    uart.write_full_blocking(b"UART example\r\n");
+
+    let mut value = 0u32;
     loop {
-        s(&mut delay, &mut led_pin);
-        delay.delay_ms(INTER_CHARACTER);
-        o(&mut delay, &mut led_pin);
-        delay.delay_ms(INTER_CHARACTER);
-        s(&mut delay, &mut led_pin);
-        delay.delay_ms(WORD_SPACE);        
+        writeln!(uart, "value: {:02}\r", value).unwrap();
+        led_pin.set_high().unwrap();
+        delay.delay_ms(DOT);
+        led_pin.set_low().unwrap();
+        delay.delay_ms(DASH);
+        value += 1
     }
 }
 
