@@ -16,6 +16,7 @@ use rp_pico::entry;
 // GPIO traits
 use embedded_hal::digital::v2::OutputPin;
 use core::fmt::Write;
+use core::ptr::write_bytes;
 
 // Ensure we halt the program on panic (if we don't mention this crate it won't
 // be linked)
@@ -97,15 +98,66 @@ fn main() -> ! {
         )
         .unwrap();
 
-    uart.write_full_blocking(b"UART example\r\n");
+    uart.write_full_blocking(b"\nUART example\r\n");
 
     let mut value = 0u32;
     loop {
         led_pin.set_high().unwrap();
         writeln!(uart, "value: {:02}\r", value).unwrap();
         led_pin.set_low().unwrap();
+        value += 1;
+        
+        let mut buffer: [char; 1024] = [0 as char; 1024];
+        buffer[1023] = '\n';
+        let mut pos = 0;
+
+        writeln!(uart, "Please enter a command:").unwrap();
+        led_pin.set_high().unwrap();
+
+        'reader: loop {
+            let mut temp_buff: [u8; 1024] = [0; 1024];
+            let mut temp_pos = 0; 
+            delay.delay_ms(500);
+            match uart.read_raw(&mut temp_buff) {
+                Ok(_) =>  (),
+                Err(_e) => {
+                    continue;
+                }
+            };
+
+            'buffer: loop {
+                let x = temp_buff[temp_pos] as char;
+                
+                if x == 0 as char {
+                    break 'buffer;
+                }
+                
+                buffer[pos] = temp_buff[temp_pos] as char;
+                pos += 1;
+                temp_pos += 1;
+                    
+                if x == '\n' {
+                    break 'reader;
+                }
+            }
+        }
+        led_pin.set_low().unwrap();
+
+
+        writeln!(uart, "recieved {}:", pos-1).unwrap();
+        for x in buffer{
+            if x == 0 as char {
+                break;
+            }
+
+            led_pin.set_high().unwrap();
+            write!(uart, "{}", x).unwrap();
+            led_pin.set_low().unwrap();
+        }
+
         delay.delay_ms(1000);
-        value += 1
+
+        //do something with command
     }
 }
 
