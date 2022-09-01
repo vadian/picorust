@@ -16,7 +16,6 @@ use rp_pico::entry;
 // GPIO traits
 use embedded_hal::digital::v2::OutputPin;
 use core::fmt::Write;
-use core::ptr::write_bytes;
 
 // Ensure we halt the program on panic (if we don't mention this crate it won't
 // be linked)
@@ -100,13 +99,7 @@ fn main() -> ! {
 
     uart.write_full_blocking(b"\nUART example\r\n");
 
-    let mut value = 0u32;
-    loop {
-        led_pin.set_high().unwrap();
-        writeln!(uart, "value: {:02}\r", value).unwrap();
-        led_pin.set_low().unwrap();
-        value += 1;
-        
+    loop {        
         let mut buffer: [char; 1024] = [0 as char; 1024];
         buffer[1023] = '\n';
         let mut pos = 0;
@@ -118,25 +111,20 @@ fn main() -> ! {
             let mut temp_buff: [u8; 1024] = [0; 1024];
             let mut temp_pos = 0; 
             delay.delay_ms(500);
-            match uart.read_raw(&mut temp_buff) {
-                Ok(_) =>  (),
+            let bytes = match uart.read_raw(&mut temp_buff) {
+                Ok(bytes) =>  bytes,
                 Err(_e) => {
                     continue;
                 }
             };
 
-            'buffer: loop {
-                let x = temp_buff[temp_pos] as char;
+            for i in 0..bytes {
+                let x = temp_buff[i] as char;
                 
-                if x == 0 as char {
-                    break 'buffer;
-                }
-                
-                buffer[pos] = temp_buff[temp_pos] as char;
+                buffer[pos] = temp_buff[i] as char;
                 write!(uart, "{}", buffer[pos]).unwrap();
 
                 pos += 1;
-                temp_pos += 1;
                     
                 if x == '\n' {
                     break 'reader;
@@ -163,6 +151,16 @@ fn main() -> ! {
             delay.delay_ms(1000);
             rp2040_hal::rom_data::reset_to_usb_boot(0, 0);
         }
+
+        if buffer[0] == 's' {
+            led_pin.set_low().unwrap();
+            delay.delay_ms(INTER_CHARACTER);
+            s(&mut delay, &mut led_pin, &mut uart);
+            delay.delay_ms(INTER_CHARACTER);
+            o(&mut delay, &mut led_pin, &mut uart);
+            delay.delay_ms(INTER_CHARACTER);
+            s(&mut delay, &mut led_pin, &mut uart);
+        }
         delay.delay_ms(1000);
 
         //do something with command
@@ -171,7 +169,7 @@ fn main() -> ! {
 }
 
 const DIT: u32 = 250;
-const DAH: u32 = 6 * DIT;
+const DAH: u32 = 3 * DIT;
 
 const DOT: u32 = DIT;
 const DASH: u32 = DAH;
@@ -179,23 +177,27 @@ const INTRA_CHARACTER: u32 = DIT;
 const INTER_CHARACTER: u32 = DAH * 3;
 const WORD_SPACE: u32 = 7 * DIT;
 
-fn s(delay: &mut Delay, pin: &mut Pin<bank0::Gpio25, Output<PushPull>>) {
+fn s(delay: &mut Delay, pin: &mut Pin<bank0::Gpio25, Output<PushPull>>, uart: &mut dyn Write ) {
     for i in 0..3 {
+        write!(uart, "High S {}", i).unwrap();
         pin.set_high().unwrap();
         delay.delay_ms(DOT);
+        writeln!(uart, " --> Low S {}", i).unwrap();
         pin.set_low().unwrap();
-        if i == 2 {
+        if i != 2 {
             delay.delay_ms(INTRA_CHARACTER);
         }
     }
 }
 
-fn o(delay: &mut Delay, pin: &mut Pin<bank0::Gpio25, Output<PushPull>>) {
+fn o(delay: &mut Delay, pin: &mut Pin<bank0::Gpio25, Output<PushPull>>, uart: &mut dyn Write) {
     for i in 0..3 {
+        write!(uart, "High O {}", i).unwrap();
         pin.set_high().unwrap();
         delay.delay_ms(DASH);
+        writeln!(uart, " --> LOW O {}", i).unwrap();
         pin.set_low().unwrap();
-        if i == 2 {
+        if i != 2 {
             delay.delay_ms(INTRA_CHARACTER);
         }
     }
