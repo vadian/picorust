@@ -111,7 +111,7 @@ fn main() -> ! {
         buffer[1023] = '\n';
         let mut pos = 0;
 
-        writeln!(uart, "Please enter a command:").unwrap();
+        write!(uart, "Please enter a command:").unwrap();
         led_pin.set_high().unwrap();
 
         'reader: loop {
@@ -133,6 +133,8 @@ fn main() -> ! {
                 }
                 
                 buffer[pos] = temp_buff[temp_pos] as char;
+                write!(uart, "{}", buffer[pos]).unwrap();
+
                 pos += 1;
                 temp_pos += 1;
                     
@@ -144,7 +146,7 @@ fn main() -> ! {
         led_pin.set_low().unwrap();
 
 
-        writeln!(uart, "recieved {}:", pos-1).unwrap();
+        write!(uart, "recieved {}:", pos-1).unwrap();
         for x in buffer{
             if x == 0 as char {
                 break;
@@ -154,10 +156,17 @@ fn main() -> ! {
             write!(uart, "{}", x).unwrap();
             led_pin.set_low().unwrap();
         }
-
+        
+        if buffer[0] == 'r' {
+            // Reboot back into USB mode (no activity, both interfaces enabled)
+            writeln!(uart, "Rebooting").unwrap();
+            delay.delay_ms(1000);
+            rp2040_hal::rom_data::reset_to_usb_boot(0, 0);
+        }
         delay.delay_ms(1000);
 
         //do something with command
+        
     }
 }
 
