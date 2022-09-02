@@ -97,7 +97,10 @@ fn main() -> ! {
         )
         .unwrap();
 
-    uart.write_full_blocking(b"\nUART example\r\n");
+    uart.write_full_blocking(b"\nMorse Controller\n");
+    uart.write_full_blocking(b"\nPress 'r' to reboot into flash mode\n");
+    uart.write_full_blocking(b"\nPress 's' to send& SOS\n");
+    uart.write_full_blocking(b"Type 'm <message>' to send morse message");
 
     loop {        
         let mut buffer: [char; 1024] = [0 as char; 1024];
@@ -109,7 +112,6 @@ fn main() -> ! {
 
         'reader: loop {
             let mut temp_buff: [u8; 1024] = [0; 1024];
-            let mut temp_pos = 0; 
             delay.delay_ms(500);
             let bytes = match uart.read_raw(&mut temp_buff) {
                 Ok(bytes) =>  bytes,
@@ -133,7 +135,6 @@ fn main() -> ! {
         }
         led_pin.set_low().unwrap();
 
-
         write!(uart, "recieved {}:", pos-1).unwrap();
         for x in buffer{
             if x == 0 as char {
@@ -149,22 +150,24 @@ fn main() -> ! {
             // Reboot back into USB mode (no activity, both interfaces enabled)
             writeln!(uart, "Rebooting").unwrap();
             delay.delay_ms(1000);
-            rp2040_hal::rom_data::reset_to_usb_boot(0, 0);
+            rp2040_hal::rom_data::reset_to_usb_boot(0, 1);
         }
 
         if buffer[0] == 's' {
             led_pin.set_low().unwrap();
-            delay.delay_ms(INTER_CHARACTER);
+            delay.delay_ms(INTRA_CHARACTER);
             s(&mut delay, &mut led_pin, &mut uart);
             delay.delay_ms(INTER_CHARACTER);
             o(&mut delay, &mut led_pin, &mut uart);
             delay.delay_ms(INTER_CHARACTER);
             s(&mut delay, &mut led_pin, &mut uart);
         }
+        if buffer[0] == 'm' {
+            morse(&buffer[2..pos], &mut delay, &mut led_pin, &mut uart);
+        }
+
         delay.delay_ms(1000);
 
-        //do something with command
-        
     }
 }
 
@@ -196,6 +199,42 @@ fn o(delay: &mut Delay, pin: &mut Pin<bank0::Gpio25, Output<PushPull>>, uart: &m
         pin.set_high().unwrap();
         delay.delay_ms(DASH);
         writeln!(uart, " --> LOW O {}", i).unwrap();
+        pin.set_low().unwrap();
+        if i != 2 {
+            delay.delay_ms(INTRA_CHARACTER);
+        }
+    }
+}
+
+struct MorseCharacter {
+    character: char,
+    length: usize,
+    code: [u32; 5]
+}
+
+fn morse(buffer: &[char], delay: &mut Delay, pin: &mut Pin<bank0::Gpio25, Output<PushPull>>, uart: &mut dyn Write ) {
+    let characters:  [MorseCharacter; 2] = [
+        MorseCharacter { character: 's', code: [DIT, DIT, DIT, 0, 0], length: 3},
+        MorseCharacter { character: 'o', code: [DAH, DAH, DAH, 0, 0], length: 3},
+        ];
+
+    for i in 0..buffer.len() {
+        for this_char in &characters {
+            if this_char.character == buffer[i] {
+                for symbol in 0..this_char.length {
+                    pin.set_high().unwrap();
+                    write!(uart, "High {} {}", this_char.character, this_char.code[symbol]).unwrap();
+                    delay.delay_ms(this_char.code[symbol]);
+                    pin.set_low().unwrap();
+                    write!(uart, "Low {} {}", this_char.character, this_char.code[symbol]).unwrap();
+                }
+            }
+        }
+        pin.set_high().unwrap();
+        write!(uart, "High {}", buffer[i]).unwrap();
+        pin.set_high().unwrap();
+        delay.delay_ms(DOT);
+        writeln!(uart, " --> Low S {}", i).unwrap();
         pin.set_low().unwrap();
         if i != 2 {
             delay.delay_ms(INTRA_CHARACTER);
