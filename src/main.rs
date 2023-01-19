@@ -98,9 +98,9 @@ fn main() -> ! {
         .unwrap();
 
     uart.write_full_blocking(b"\nMorse Controller\n");
-    uart.write_full_blocking(b"\nPress 'r' to reboot into flash mode\n");
-    uart.write_full_blocking(b"\nPress 's' to send& SOS\n");
-    uart.write_full_blocking(b"Type 'm <message>' to send morse message");
+    uart.write_full_blocking(b"Press 'r' to reboot into flash mode\n");
+    uart.write_full_blocking(b"Press 's' to send SOS\n");
+    uart.write_full_blocking(b"Type 'm <message>' to send morse message\n");
 
     loop {        
         let mut buffer: [char; 1024] = [0 as char; 1024];
@@ -150,7 +150,7 @@ fn main() -> ! {
             // Reboot back into USB mode (no activity, both interfaces enabled)
             writeln!(uart, "Rebooting").unwrap();
             delay.delay_ms(1000);
-            rp2040_hal::rom_data::reset_to_usb_boot(0, 1);
+            rp2040_hal::rom_data::reset_to_usb_boot(0, 0);
         }
 
         if buffer[0] == 's' {
@@ -226,8 +226,12 @@ fn morse(buffer: &[char], delay: &mut Delay, pin: &mut Pin<bank0::Gpio25, Output
                     write!(uart, "High {} {}", this_char.character, this_char.code[symbol]).unwrap();
                     delay.delay_ms(this_char.code[symbol]);
                     pin.set_low().unwrap();
-                    write!(uart, "Low {} {}", this_char.character, this_char.code[symbol]).unwrap();
+                    writeln!(uart, "--> Low {} {}", this_char.character, this_char.code[symbol]).unwrap();
+                    if symbol+1 != this_char.length {
+                        delay.delay_ms(INTRA_CHARACTER)
+                    }
                 }
+                delay.delay_ms(INTER_CHARACTER);
             }
         }
         pin.set_high().unwrap();
