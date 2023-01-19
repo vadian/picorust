@@ -1,11 +1,6 @@
-//! # Pico Blinky Example
+//! # Pico Morse Code Example
 //!
-//! Blinks the LED on a Pico board.
-//!
-//! This will blink an LED attached to GP25, which is the pin the Pico uses for
-//! the on-board LED.
-//!
-//! See the `Cargo.toml` file for Copyright and license details.
+//! Accepts UART input and outputs Morse code via GP25, the on-board LED.
 
 #![no_std]
 #![no_main]
@@ -39,9 +34,6 @@ use rp2040_hal::gpio::*;
 ///
 /// The `#[entry]` macro ensures the Cortex-M start-up code calls this function
 /// as soon as all global variables are initialised.
-///
-/// The function configures the RP2040 peripherals, then blinks the LED in an
-/// infinite loop.
 #[entry]
 fn main() -> ! {
     // Grab our singleton objects
@@ -245,5 +237,3 @@ fn morse(buffer: &[char], delay: &mut Delay, pin: &mut Pin<bank0::Gpio25, Output
         }
     }
 }
-
-// End of file
